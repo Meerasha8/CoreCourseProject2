@@ -139,5 +139,45 @@ def get_data():
 
     return jsonify(rows)
 
+@app.route("/api/pest/latest")
+def latest_pest():
+    conn = sqlite3.connect("database.db")
+    c = conn.cursor()
+    c.execute("""
+        SELECT detected, time
+        FROM pest_alert
+        ORDER BY id DESC
+        LIMIT 1
+    """)
+    row = c.fetchone()
+    conn.close()
+
+    if row:
+        return jsonify({"detected": row[0], "time": row[1]})
+    return jsonify({"detected": 0})
+
+@app.route("/api/latest")
+def latest_sensor():
+    conn = sqlite3.connect("database.db")
+    c = conn.cursor()
+    c.execute("""
+        SELECT temperature, humidity, time
+        FROM sensor_data
+        ORDER BY id DESC
+        LIMIT 1
+    """)
+    row = c.fetchone()
+    conn.close()
+
+    if row:
+        return jsonify({
+            "temperature": row[0],
+            "humidity": row[1],
+            "time": row[2]
+        })
+    return jsonify({})
+
+
+
 if __name__ == "__main__":
     app.run(debug=True)

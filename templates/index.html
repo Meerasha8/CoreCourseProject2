@@ -3,21 +3,37 @@
 <head>
     <title>Smart Greenhouse</title>
     <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
+
 <body>
 
 <h1>🌱 Smart Greenhouse Control</h1>
 
-<div class="card">
-    <h2>Sensor Data</h2>
-    <table>
-        <thead>
-            <tr><th>Temp (°C)</th><th>Humidity (%)</th><th>Time</th></tr>
-        </thead>
-        <tbody id="data"></tbody>
-    </table>
+<!-- ===== STATUS CARDS ===== -->
+<div class="stats">
+    <div class="stat-card">
+        <h3>Temperature</h3>
+        <p id="tempValue">-- °C</p>
+    </div>
+    <div class="stat-card">
+        <h3>Humidity</h3>
+        <p id="humidityValue">-- %</p>
+    </div>
 </div>
 
+<!-- ===== PEST ALERT ===== -->
+<div id="pestAlert" class="alert hidden">
+    🚨 Pest detected at <span id="pestTime"></span>
+</div>
+
+<!-- ===== GRAPH ===== -->
+<div class="card">
+    <h2>Temperature & Humidity Trend</h2>
+    <canvas id="sensorChart"></canvas>
+</div>
+
+<!-- ===== CONTROLS ===== -->
 <div class="card">
     <h2>Controls</h2>
     <button onclick="spray()">Spray (10s)</button>
@@ -26,18 +42,73 @@
 </div>
 
 <script>
-async function loadData() {
-    const res = await fetch("/api/data");
+let chart;
+
+/* -------- LOAD CURRENT VALUES -------- */
+async function loadLatest() {
+    const res = await fetch("/api/latest");
     const data = await res.json();
-    const table = document.getElementById("data");
-    table.innerHTML = "";
-    data.forEach(r => {
-        table.innerHTML += `<tr>
-            <td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td>
-        </tr>`;
-    });
+
+    if (data.temperature) {
+        document.getElementById("tempValue").innerText =
+            data.temperature + " °C";
+        document.getElementById("humidityValue").innerText =
+            data.humidity + " %";
+    }
 }
 
+/* -------- LOAD GRAPH DATA -------- */
+async function loadGraph() {
+    const res = await fetch("/api/data");
+    const rows = await res.json();
+
+    const labels = rows.map(r => r[2]).reverse();
+    const temp = rows.map(r => r[0]).reverse();
+    const hum = rows.map(r => r[1]).reverse();
+
+    if (!chart) {
+        chart = new Chart(document.getElementById("sensorChart"), {
+            type: "line",
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: "Temperature (°C)",
+                        data: temp,
+                        borderColor: "#2ecc71",
+                        fill: false
+                    },
+                    {
+                        label: "Humidity (%)",
+                        data: hum,
+                        borderColor: "#3498db",
+                        fill: false
+                    }
+                ]
+            }
+        });
+    } else {
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = temp;
+        chart.data.datasets[1].data = hum;
+        chart.update();
+    }
+}
+
+/* -------- PEST ALERT -------- */
+async function checkPest() {
+    const res = await fetch("/api/pest/latest");
+    const data = await res.json();
+
+    const alertBox = document.getElementById("pestAlert");
+
+    if (data.detected === 1) {
+        document.getElementById("pestTime").innerText = data.time;
+        alertBox.classList.remove("hidden");
+    }
+}
+
+/* -------- CONTROLS -------- */
 function spray() {
     fetch("/api/control", {
         method: "POST",
@@ -62,8 +133,14 @@ function lightOff() {
     });
 }
 
-setInterval(loadData, 3000);
-loadData();
+/* -------- AUTO REFRESH -------- */
+setInterval(loadLatest, 3000);
+setInterval(loadGraph, 5000);
+setInterval(checkPest, 3000);
+
+loadLatest();
+loadGraph();
+checkPest();
 </script>
 
 </body>
