@@ -1,28 +1,70 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>ESP32 Temperature</title>
-    <script>
-        async function loadData() {
-            const res = await fetch("/api/data");
-            const data = await res.json();
-
-            let table = document.getElementById("data");
-            table.innerHTML = "";
-
-            data.forEach(row => {
-                table.innerHTML += `<tr><td>${row[0]}</td><td>${row[1]}</td></tr>`;
-            });
-        }
-
-        setInterval(loadData, 3000);
-    </script>
+    <title>Smart Greenhouse</title>
+    <link rel="stylesheet" href="/static/style.css">
 </head>
-<body onload="loadData()">
-    <h1>Temperature Log</h1>
-    <table border="1">
-        <tr><th>Temp (°C)</th><th>Time</th></tr>
+<body>
+
+<h1>🌱 Smart Greenhouse Control</h1>
+
+<div class="card">
+    <h2>Sensor Data</h2>
+    <table>
+        <thead>
+            <tr><th>Temp (°C)</th><th>Humidity (%)</th><th>Time</th></tr>
+        </thead>
         <tbody id="data"></tbody>
     </table>
+</div>
+
+<div class="card">
+    <h2>Controls</h2>
+    <button onclick="spray()">Spray (10s)</button>
+    <button onclick="lightOn()">Light ON</button>
+    <button onclick="lightOff()">Light OFF</button>
+</div>
+
+<script>
+async function loadData() {
+    const res = await fetch("/api/data");
+    const data = await res.json();
+    const table = document.getElementById("data");
+    table.innerHTML = "";
+    data.forEach(r => {
+        table.innerHTML += `<tr>
+            <td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td>
+        </tr>`;
+    });
+}
+
+function spray() {
+    fetch("/api/control", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({spray:1})
+    });
+}
+
+function lightOn() {
+    fetch("/api/control", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({light:1})
+    });
+}
+
+function lightOff() {
+    fetch("/api/control", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({light:0})
+    });
+}
+
+setInterval(loadData, 3000);
+loadData();
+</script>
+
 </body>
 </html>
