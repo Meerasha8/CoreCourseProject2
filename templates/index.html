@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ESP32 Temperature</title>
+    <script>
+        async function loadData() {
+            const res = await fetch("/api/data");
+            const data = await res.json();
+
+            let table = document.getElementById("data");
+            table.innerHTML = "";
+
+            data.forEach(row => {
+                table.innerHTML += `<tr><td>${row[0]}</td><td>${row[1]}</td></tr>`;
+            });
+        }
+
+        setInterval(loadData, 3000);
+    </script>
+</head>
+<body onload="loadData()">
+    <h1>Temperature Log</h1>
+    <table border="1">
+        <tr><th>Temp (°C)</th><th>Time</th></tr>
+        <tbody id="data"></tbody>
+    </table>
+</body>
+</html>
