@@ -1,14 +1,29 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, send_from_directory
 import sqlite3
 from datetime import datetime
+import os
+import cv2
+import numpy as np
+from ultralytics import YOLO
 
 app = Flask(__name__)
 
+# ---------------- YOLO MODEL LOAD ----------------
+
+# Put your trained model in project root
+
+model = YOLO("yolov8n_insect.pt")
+
+# ---------------- IMAGE STORAGE ----------------
+
+UPLOAD_FOLDER = "uploads"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
 # ---------------- DB INIT ----------------
+
 def init_db():
     conn = sqlite3.connect("database.db")
     c = conn.cursor()
-
     c.execute("""
         CREATE TABLE IF NOT EXISTS sensor_data (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,11 +51,10 @@ def init_db():
         )
     """)
 
-    # Ensure one command row exists
     c.execute("SELECT COUNT(*) FROM commands")
     if c.fetchone()[0] == 0:
         c.execute("INSERT INTO commands VALUES (1,0,0,0,?)",
-                  (datetime.now().isoformat(),))
+                (datetime.now().isoformat(),))
 
     conn.commit()
     conn.close()
@@ -48,11 +62,13 @@ def init_db():
 init_db()
 
 # ---------------- FRONTEND ----------------
+
 @app.route("/")
 def index():
     return render_template("index.html")
 
-# ---------------- ESP32: SENSOR DATA ----------------
+# ---------------- SENSOR DATA ----------------
+
 @app.route("/api/sensor", methods=["POST"])
 def receive_sensor():
     data = request.json
@@ -60,7 +76,7 @@ def receive_sensor():
     c = conn.cursor()
 
     c.execute(
-        "INSERT INTO sensor_data (temperature, humidity, time) VALUES (?,?,?)",
+        "INSERT INTO sensor_data VALUES (NULL,?,?,?)",
         (data["temperature"], data["humidity"], data["time"])
     )
 
@@ -68,7 +84,9 @@ def receive_sensor():
     conn.close()
     return jsonify({"status": "ok"})
 
-# ---------------- ESP32: GET COMMAND ----------------
+
+# ---------------- GET COMMAND ----------------
+
 @app.route("/api/command")
 def get_command():
     conn = sqlite3.connect("database.db")
@@ -83,13 +101,13 @@ def get_command():
         "buzzer": row[2]
     })
 
-# ---------------- FRONTEND BUTTONS ----------------
+# ---------------- CONTROL ----------------
+
 @app.route("/api/control", methods=["POST"])
 def control():
     data = request.json
     conn = sqlite3.connect("database.db")
     c = conn.cursor()
-
     c.execute("""
         UPDATE commands
         SET spray=?, light=?, buzzer=?, updated_at=?
@@ -105,79 +123,72 @@ def control():
     conn.close()
     return jsonify({"status": "updated"})
 
-# ---------------- YOLO PEST ALERT ----------------
-@app.route("/api/pest", methods=["POST"])
-def pest_alert():
-    conn = sqlite3.connect("database.db")
-    c = conn.cursor()
+# ---------------- IMAGE UPLOAD + YOLO ----------------
 
-    c.execute(
-        "INSERT INTO pest_alert (detected, time) VALUES (?,?)",
-        (1, datetime.now().isoformat())
-    )
+@app.route("/upload", methods=["POST"])
+def upload_image():
+    if not request.data:
+        return jsonify({"error": "no_image"}), 400
 
-    # Activate buzzer automatically
-    c.execute("UPDATE commands SET buzzer=1 WHERE id=1")
+    # Save image
+    filename = datetime.now().strftime("%Y%m%d%H%M%S") + ".jpg"
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
 
-    conn.commit()
-    conn.close()
-    return jsonify({"status": "pest_detected"})
+    with open(filepath, "wb") as f:
+        f.write(request.data)
 
-# ---------------- FETCH DATA FOR UI ----------------
-@app.route("/api/data")
-def get_data():
-    conn = sqlite3.connect("database.db")
-    c = conn.cursor()
+    # ---------- YOLO DETECTION ----------
+    img = cv2.imread(filepath)
+    results = model(img)
 
-    c.execute("""
-        SELECT temperature, humidity, time
-        FROM sensor_data
-        ORDER BY id DESC LIMIT 20
-    """)
-    rows = c.fetchall()
-    conn.close()
+    pest_detected = 0
 
-    return jsonify(rows)
+    for r in results:
+        if len(r.boxes) > 0:
+            pest_detected = 1
+
+    # ---------- SAVE ALERT ----------
+    if pest_detected == 1:
+        conn = sqlite3.connect("database.db")
+        c = conn.cursor()
+
+        c.execute(
+            "INSERT INTO pest_alert VALUES (NULL,?,?)",
+            (1, datetime.now().isoformat())
+        )
+
+        c.execute("UPDATE commands SET buzzer=1 WHERE id=1")
+
+        conn.commit()
+        conn.close()
+
+    return jsonify({
+        "status": "processed",
+        "pest_detected": pest_detected
+    })
+
+# ---------------- SERVE IMAGES ----------------
+
+@app.route("/uploads/<filename>")
+def get_image(filename):
+    return send_from_directory(UPLOAD_FOLDER, filename)
+
+# ---------------- LATEST PEST ----------------
 
 @app.route("/api/pest/latest")
 def latest_pest():
     conn = sqlite3.connect("database.db")
     c = conn.cursor()
     c.execute("""
-        SELECT detected, time
-        FROM pest_alert
-        ORDER BY id DESC
-        LIMIT 1
+    SELECT detected, time
+    FROM pest_alert
+    ORDER BY id DESC LIMIT 1
     """)
     row = c.fetchone()
     conn.close()
-
     if row:
         return jsonify({"detected": row[0], "time": row[1]})
     return jsonify({"detected": 0})
-
-@app.route("/api/latest")
-def latest_sensor():
-    conn = sqlite3.connect("database.db")
-    c = conn.cursor()
-    c.execute("""
-        SELECT temperature, humidity, time
-        FROM sensor_data
-        ORDER BY id DESC
-        LIMIT 1
-    """)
-    row = c.fetchone()
-    conn.close()
-
-    if row:
-        return jsonify({
-            "temperature": row[0],
-            "humidity": row[1],
-            "time": row[2]
-        })
-    return jsonify({})
-
-
 
 if __name__ == "__main__":
     app.run(debug=True)

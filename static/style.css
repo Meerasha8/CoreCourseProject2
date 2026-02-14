@@ -1,72 +1,136 @@
 body {
-    font-family: Arial, sans-serif;
-    background: #f4fbf6;
-    padding: 20px;
+font-family: Arial, Helvetica, sans-serif;
+background: #f4fbf6;
+margin: 0;
+padding: 20px;
 }
 
+/* ================= HEADER ================= */
 h1 {
-    color: #2e7d32;
+text-align: center;
+color: #2e7d32;
+margin-bottom: 30px;
 }
 
+/* ================= CARD CONTAINER ================= */
 .card {
-    background: white;
-    padding: 20px;
-    margin-bottom: 20px;
-    border-radius: 12px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+background: #ffffff;
+padding: 20px;
+margin-bottom: 20px;
+border-radius: 14px;
+box-shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
 
-/* ===== STATUS CARDS ===== */
+/* ================= STATUS CARDS ================= */
 .stats {
-    display: flex;
-    gap: 20px;
-    margin-bottom: 20px;
+display: flex;
+gap: 20px;
+margin-bottom: 20px;
+flex-wrap: wrap;
 }
 
 .stat-card {
-    flex: 1;
-    background: #e8f5e9;
-    padding: 20px;
-    border-radius: 12px;
-    text-align: center;
+flex: 1;
+min-width: 200px;
+background: linear-gradient(135deg,#e8f5e9,#c8e6c9);
+padding: 20px;
+border-radius: 14px;
+text-align: center;
+box-shadow: 0 3px 8px rgba(0,0,0,0.08);
 }
 
 .stat-card h3 {
-    margin-bottom: 10px;
-    color: #2e7d32;
+margin-bottom: 10px;
+color: #1b5e20;
+font-weight: 600;
 }
 
 .stat-card p {
-    font-size: 32px;
-    font-weight: bold;
+font-size: 30px;
+font-weight: bold;
+color: #0d3b1e;
 }
 
-/* ===== ALERT ===== */
+/* ================= CAMERA FEED ================= */
+.camera-box {
+text-align: center;
+}
+
+.camera-box img {
+width: 420px;
+max-width: 100%;
+border-radius: 12px;
+border: 4px solid #2e7d32;
+box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+}
+
+/* ================= ALERT ================= */
 .alert {
-    background: #d32f2f;
-    color: white;
-    padding: 15px;
-    border-radius: 10px;
-    font-weight: bold;
-    margin-bottom: 20px;
+background: #d32f2f;
+color: white;
+padding: 15px;
+border-radius: 10px;
+font-weight: bold;
+margin-bottom: 20px;
+text-align: center;
+animation: blink 1s infinite;
+box-shadow: 0 4px 10px rgba(0,0,0,0.2);
 }
 
 .hidden {
-    display: none;
+display: none;
 }
 
-/* ===== BUTTONS ===== */
+@keyframes blink {
+0% {opacity: 1;}
+50% {opacity: 0.4;}
+100% {opacity: 1;}
+}
+
+/* ================= CONTROLS ================= */
+.controls {
+display: flex;
+flex-wrap: wrap;
+gap: 15px;
+}
+
 button {
-    padding: 10px 20px;
-    margin: 5px;
-    font-size: 16px;
-    background: #2e7d32;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
+padding: 12px 22px;
+font-size: 16px;
+background: #2e7d32;
+color: white;
+border: none;
+border-radius: 10px;
+cursor: pointer;
+transition: all 0.25s ease;
+box-shadow: 0 3px 8px rgba(0,0,0,0.15);
 }
 
 button:hover {
-    background: #1b5e20;
+background: #1b5e20;
+transform: translateY(-2px);
+}
+
+/* ================= GRAPH ================= */
+canvas {
+width: 100% !important;
+max-height: 400px;
+}
+
+/* ================= RESPONSIVE ================= */
+@media (max-width: 768px) {
+
+.stats {
+    flex-direction: column;
+}
+
+.camera-box img {
+    width: 100%;
+}
+
+button {
+    width: 100%;
+}
+
+
 }

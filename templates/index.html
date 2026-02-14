@@ -1,9 +1,14 @@
 <!DOCTYPE html>
+
 <html>
 <head>
-    <title>Smart Greenhouse</title>
-    <link rel="stylesheet" href="/static/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>🌱 Smart Greenhouse</title>
+
+```
+<link rel="stylesheet" href="/static/style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+```
+
 </head>
 
 <body>
@@ -11,47 +16,95 @@
 <h1>🌱 Smart Greenhouse Control</h1>
 
 <!-- ===== STATUS CARDS ===== -->
+
 <div class="stats">
-    <div class="stat-card">
-        <h3>Temperature</h3>
-        <p id="tempValue">-- °C</p>
-    </div>
-    <div class="stat-card">
-        <h3>Humidity</h3>
-        <p id="humidityValue">-- %</p>
-    </div>
+
+```
+<div class="stat-card">
+    <h3>Temperature</h3>
+    <p id="tempValue">-- °C</p>
+</div>
+
+<div class="stat-card">
+    <h3>Humidity</h3>
+    <p id="humidityValue">-- %</p>
+</div>
+
+<!-- NEW: Pest Status -->
+<div class="stat-card">
+    <h3>Pest Status</h3>
+    <p id="pestStatus">Safe</p>
+</div>
+```
+
 </div>
 
 <!-- ===== PEST ALERT ===== -->
+
 <div id="pestAlert" class="alert hidden">
     🚨 Pest detected at <span id="pestTime"></span>
 </div>
 
+<!-- ===== CAMERA FEED ===== -->
+
+<div class="card">
+    <h2>📷 ESP32-CAM Feed</h2>
+
+```
+<div class="camera-box">
+    <img id="latestImage"
+         src=""
+         alt="Camera Feed">
+</div>
+```
+
+</div>
+
 <!-- ===== GRAPH ===== -->
+
 <div class="card">
     <h2>Temperature & Humidity Trend</h2>
     <canvas id="sensorChart"></canvas>
 </div>
 
 <!-- ===== CONTROLS ===== -->
+
 <div class="card">
     <h2>Controls</h2>
-    <button onclick="spray()">Spray (10s)</button>
-    <button onclick="lightOn()">Light ON</button>
-    <button onclick="lightOff()">Light OFF</button>
+
+```
+<button onclick="spray()">💧 Spray (10s)</button>
+<button onclick="lightOn()">💡 Light ON</button>
+<button onclick="lightOff()">💡 Light OFF</button>
+<button onclick="buzzerOff()">🔕 Stop Buzzer</button>
+```
+
 </div>
 
 <script>
 let chart;
 
+/* ================= SAFE FETCH WRAPPER ================= */
+async function safeFetch(url) {
+    try {
+        const res = await fetch(url);
+        return await res.json();
+    } catch (err) {
+        console.log("API error:", url);
+        return {};
+    }
+}
+
 /* -------- LOAD CURRENT VALUES -------- */
 async function loadLatest() {
-    const res = await fetch("/api/latest");
-    const data = await res.json();
 
-    if (data.temperature) {
+    const data = await safeFetch("/api/latest");
+
+    if (data.temperature !== undefined) {
+
         document.getElementById("tempValue").innerText =
             data.temperature + " °C";
+
         document.getElementById("humidityValue").innerText =
             data.humidity + " %";
     }
@@ -59,35 +112,44 @@ async function loadLatest() {
 
 /* -------- LOAD GRAPH DATA -------- */
 async function loadGraph() {
-    const res = await fetch("/api/data");
-    const rows = await res.json();
+
+    const rows = await safeFetch("/api/data");
+    if (!rows.length) return;
 
     const labels = rows.map(r => r[2]).reverse();
     const temp = rows.map(r => r[0]).reverse();
     const hum = rows.map(r => r[1]).reverse();
 
     if (!chart) {
-        chart = new Chart(document.getElementById("sensorChart"), {
-            type: "line",
-            data: {
-                labels: labels,
-                datasets: [
-                    {
-                        label: "Temperature (°C)",
-                        data: temp,
-                        borderColor: "#2ecc71",
-                        fill: false
-                    },
-                    {
-                        label: "Humidity (%)",
-                        data: hum,
-                        borderColor: "#3498db",
-                        fill: false
-                    }
-                ]
+
+        chart = new Chart(
+            document.getElementById("sensorChart"),
+            {
+                type: "line",
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: "Temperature (°C)",
+                            data: temp,
+                            borderColor: "#2ecc71",
+                            fill: false,
+                            tension: 0.3
+                        },
+                        {
+                            label: "Humidity (%)",
+                            data: hum,
+                            borderColor: "#3498db",
+                            fill: false,
+                            tension: 0.3
+                        }
+                    ]
+                }
             }
-        });
+        );
+
     } else {
+
         chart.data.labels = labels;
         chart.data.datasets[0].data = temp;
         chart.data.datasets[1].data = hum;
@@ -97,15 +159,36 @@ async function loadGraph() {
 
 /* -------- PEST ALERT -------- */
 async function checkPest() {
-    const res = await fetch("/api/pest/latest");
-    const data = await res.json();
+
+    const data = await safeFetch("/api/pest/latest");
 
     const alertBox = document.getElementById("pestAlert");
 
     if (data.detected === 1) {
-        document.getElementById("pestTime").innerText = data.time;
+
+        document.getElementById("pestStatus").innerText =
+            "Detected";
+
+        document.getElementById("pestTime").innerText =
+            data.time;
+
         alertBox.classList.remove("hidden");
+
+    } else {
+
+        document.getElementById("pestStatus").innerText =
+            "Safe";
+
+        alertBox.classList.add("hidden");
     }
+}
+
+/* -------- CAMERA IMAGE AUTO REFRESH -------- */
+function loadImage() {
+
+    // Prevent browser caching
+    document.getElementById("latestImage").src =
+        "/uploads/latest.jpg?t=" + new Date().getTime();
 }
 
 /* -------- CONTROLS -------- */
@@ -133,14 +216,25 @@ function lightOff() {
     });
 }
 
+function buzzerOff() {
+    fetch("/api/control", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({buzzer:0})
+    });
+}
+
 /* -------- AUTO REFRESH -------- */
 setInterval(loadLatest, 3000);
 setInterval(loadGraph, 5000);
 setInterval(checkPest, 3000);
+setInterval(loadImage, 5000);
 
 loadLatest();
 loadGraph();
 checkPest();
+loadImage();
+
 </script>
 
 </body>
